@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  RENT
+  CREDIT_CARD
+  FLIGHT
+  HOTEL
+  RECHARGE
+  BILL
+}
+
+enum BillCategory {
+  ELECTRICITY
+  DTH
+  BROADBAND
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  name                 String
+  email                String               @unique
+  passwordHash         String
+  role                 UserRole             @default(USER)
+  phone                String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  landlords            Landlord[]
+  payments             Payment[]
+  creditCardPayments   CreditCardPayment[]
+  flightBookings       FlightBooking[]
+  hotelBookings        HotelBooking[]
+  rechargeTransactions RechargeTransaction[]
+  billPayments         BillPayment[]
+
+  @@index([role, createdAt])
+}
+
+model Landlord {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  phone         String?
+  email         String?
+  bankName      String?
+  accountNumber String?
+  ifscCode      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+
+  @@index([userId, createdAt])
+}
+
+model Payment {
+  id                  String         @id @default(cuid())
+  userId              String
+  landlordId          String?
+  purpose             PaymentPurpose
+  status              PaymentStatus  @default(CREATED)
+  baseAmount          Decimal        @db.Decimal(12, 2)
+  platformFee         Decimal        @db.Decimal(12, 2)
+  taxAmount           Decimal        @db.Decimal(12, 2)
+  totalAmount         Decimal        @db.Decimal(12, 2)
+  netRevenue          Decimal        @db.Decimal(12, 2)
+  razorpayOrderId     String?        @unique
+  razorpayPaymentId   String?        @unique
+  razorpayRefundId    String?
+  receiptNumber       String         @unique
+  notes               Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  landlord            Landlord?      @relation(fields: [landlordId], references: [id], onDelete: SetNull)
+  creditCardPayment   CreditCardPayment?
+  flightBooking       FlightBooking?
+  hotelBooking        HotelBooking?
+  rechargeTransaction RechargeTransaction?
+  billPayment         BillPayment?
+
+  @@index([userId, purpose, createdAt])
+  @@index([status, createdAt])
+}
+
+model CreditCardPayment {
+  id                String        @id @default(cuid())
+  userId            String
+  paymentId         String        @unique
+  cardIssuer        String
+  cardLast4         String
+  dueAmount         Decimal       @db.Decimal(12, 2)
+  status            PaymentStatus @default(CREATED)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment           Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, createdAt])
+}
+
+model FlightBooking {
+  id                  String        @id @default(cuid())
+  userId              String
+  paymentId           String        @unique
+  origin              String
+  destination         String
+  departureDate       DateTime
+  travellers          Int
+  airline             String
+  flightNumber        String
+  bookingReference    String        @unique
+  provider            String
+  status              BookingStatus @default(PENDING)
+  supplierCost        Decimal       @db.Decimal(12, 2)
+  markupAmount        Decimal       @db.Decimal(12, 2)
+  serviceFee          Decimal       @db.Decimal(12, 2)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment             Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, departureDate])
+}
+
+model HotelBooking {
+  id                  String        @id @default(cuid())
+  userId              String
+  paymentId           String        @unique
+  city                String
+  hotelName           String
+  roomType            String
+  checkIn             DateTime
+  checkOut            DateTime
+  guests              Int
+  bookingReference    String        @unique
+  provider            String
+  status              BookingStatus @default(PENDING)
+  supplierCost        Decimal       @db.Decimal(12, 2)
+  markupAmount        Decimal       @db.Decimal(12, 2)
+  serviceFee          Decimal       @db.Decimal(12, 2)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment             Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, checkIn])
+}
+
+model RechargeTransaction {
+  id              String        @id @default(cuid())
+  userId          String
+  paymentId       String        @unique
+  operator        String
+  mobileNumber    String
+  planCode        String
+  planAmount      Decimal       @db.Decimal(12, 2)
+  commission      Decimal       @db.Decimal(12, 2)
+  status          PaymentStatus @default(CREATED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, operator, createdAt])
+}
+
+model BillPayment {
+  id              String        @id @default(cuid())
+  userId          String
+  paymentId       String        @unique
+  category        BillCategory
+  providerName    String
+  consumerNumber  String
+  billAmount      Decimal       @db.Decimal(12, 2)
+  serviceFee      Decimal       @db.Decimal(12, 2)
+  status          PaymentStatus @default(CREATED)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment         Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, category, createdAt])
+}
+
+model WebhookLog {
+  id              String   @id @default(cuid())
+  event           String
+  entityId        String?
+  signatureValid  Boolean
+  payload         Json
+  processed       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([entityId])
+}

@@ -1,0 +1,22 @@
+.sidebar {
+  border-radius: 30px;
+  background: rgba(9, 29, 19, 0.96);
+  color: #f8f4ec;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: rgba(248, 244, 236, 0.82);
+  transition: all 0.2s ease;
+}
+
+.navLink:hover,
+.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
